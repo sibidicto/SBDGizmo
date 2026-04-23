@@ -1,0 +1,241 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(66, 66, 66, 0.18), transparent 42%),
+    linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background:
+    radial-gradient(circle at top, rgba(66, 66, 66, 0.18), transparent 42%),
+    linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  color: #f5f5f5;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.webgl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  cursor: grab;
+}
+
+.webgl:active {
+  cursor: grabbing;
+}
+
+.toolbar {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: min(820px, calc(100vw - 40px));
+  z-index: 20;
+}
+
+.toolbar__button {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.56);
+  backdrop-filter: blur(12px);
+  color: #f4f0e8;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.toolbar__button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.toolbar__button--active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toolbar__button:active {
+  transform: translateY(1px);
+}
+
+.status-toast {
+  position: fixed;
+  left: 20px;
+  top: 20px;
+  max-width: min(460px, calc(100vw - 40px));
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(10, 10, 10, 0.68);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 12;
+}
+
+.status-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.debug {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  width: min(460px, calc(100vw - 40px));
+  max-height: min(42vh, 360px);
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(10, 10, 10, 0.72);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.82);
+  font: 12px/1.4 Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+  z-index: 11;
+}
+
+.tutorial {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.tutorial__trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.72));
+  transform-origin: 0 50%;
+  opacity: 0;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.18);
+}
+
+.tutorial__effects {
+  position: absolute;
+  inset: 0;
+}
+
+.tutorial__cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 28px;
+  border-radius: 10px 10px 12px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 8px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transform: translate(-50%, -50%);
+}
+
+.tutorial__cursor::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 5px;
+  width: 2px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateX(-50%);
+  border-radius: 999px;
+}
+
+.tutorial__cursor.is-pressed {
+  box-shadow:
+    0 0 0 14px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.tutorial__card {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  max-width: 320px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.tutorial__title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tutorial__text {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tutorial__effect {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.42);
+  transform: translate(-50%, -50%);
+  animation: tutorial-float 850ms ease forwards;
+}
+
+@keyframes tutorial-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.85);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -110%) scale(1.04);
+  }
+}

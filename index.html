@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GLB Gizmo Viewer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas class="webgl"></canvas>
+
+    <div class="toolbar">
+      <button class="toolbar__button toolbar__button--active js-layout-v1" type="button">V1</button>
+      <button class="toolbar__button js-layout-v2" type="button">V2</button>
+      <button class="toolbar__button js-toggle-debug" type="button">Hide Debug</button>
+      <button class="toolbar__button js-toggle-gizmo" type="button">Hide Gizmo</button>
+      <button class="toolbar__button js-reset-view" type="button">Reset View</button>
+      <button class="toolbar__button js-load-model" type="button">Load Model</button>
+      <button class="toolbar__button js-show-tutorial" type="button">Show Tutorial</button>
+      <input class="js-model-file" type="file" accept=".glb,model/gltf-binary" hidden />
+    </div>
+
+    <div class="status-toast" aria-live="polite"></div>
+    <pre class="debug"></pre>
+
+    <div class="tutorial is-hidden">
+      <div class="tutorial__trail"></div>
+      <div class="tutorial__effects"></div>
+      <div class="tutorial__cursor"></div>
+      <div class="tutorial__card">
+        <div class="tutorial__title">Tutorial</div>
+        <div class="tutorial__text">Showing controls...</div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
