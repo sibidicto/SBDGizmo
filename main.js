@@ -179,7 +179,7 @@ const state = {
   tutorialCameraPosition: new THREE.Vector3(),
   tutorialTarget: new THREE.Vector3(),
   gizmoVisible: true,
-  debugVisible: true,
+  debugVisible: false,
   hasLoadedModel: false,
   currentModelLabel: "model.glb",
   objectUrl: null,
@@ -523,7 +523,6 @@ function centerPivotOnModel() {
   transformPivot.attach(modelRoot);
   gizmo.position.copy(modelCenterWorld);
   gizmoPickers.position.copy(modelCenterWorld);
-  controls.target.copy(modelCenterWorld);
 }
 
 function resetSceneState() {
@@ -1112,6 +1111,10 @@ function initializeLoadedModel(model) {
 
   centerPivotOnModel();
   state.initialTarget.copy(modelCenterWorld);
+
+  if (!state.hasLoadedModel) {
+    controls.target.copy(modelCenterWorld);
+  }
 
   controls.minDistance = maxDim * 0.45;
   controls.maxDistance = maxDim * 8;
@@ -1784,15 +1787,18 @@ function updateGizmo() {
   const rawPadding = Math.max(maxHalf * gizmoConfig.offsetMultiplier, 0.18);
   const viewAtPivot = getViewportSizeAtPosition(worldPivot);
   const maxGizmoRadius = Math.min(viewAtPivot.x, viewAtPivot.y) * GIZMO_SCREEN_FIT;
-  const padding = Math.min(rawPadding, Math.max(maxGizmoRadius - maxHalf, 0.08));
+  const desiredPadding = rawPadding;
+  const desiredRadiusX = halfX + desiredPadding;
+  const desiredRadiusY = halfY + desiredPadding;
+  const desiredRadiusZ = halfZ + desiredPadding;
+  const desiredWhiteRadius = Math.max(desiredRadiusX, desiredRadiusY, desiredRadiusZ) + desiredPadding * 0.62;
+  const gizmoScale = desiredWhiteRadius > 0 ? Math.min(1, maxGizmoRadius / desiredWhiteRadius) : 1;
+  const padding = desiredPadding * gizmoScale;
 
-  const radiusX = halfX + padding;
-  const radiusY = halfY + padding;
-  const radiusZ = halfZ + padding;
-  const whiteRadius = Math.min(
-    Math.max(radiusX, radiusY, radiusZ) + padding * 0.62,
-    maxGizmoRadius,
-  );
+  const radiusX = desiredRadiusX * gizmoScale;
+  const radiusY = desiredRadiusY * gizmoScale;
+  const radiusZ = desiredRadiusZ * gizmoScale;
+  const whiteRadius = Math.max(Math.min(desiredWhiteRadius * gizmoScale, maxGizmoRadius), 0.22);
 
   gizmo.userData.axisGroups.y.position.set(0, -halfY + Math.max(padding * 0.2, 0.035), 0);
   gizmoPickers.userData.axisGroups.y.position.copy(gizmo.userData.axisGroups.y.position);
@@ -1855,15 +1861,9 @@ function clampScaleToView(desiredScale) {
     return THREE.MathUtils.clamp(desiredScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE);
   }
 
-  transformPivot.getWorldPosition(worldPivot);
-
   const currentScale = Math.max(modelRoot.scale.x, 0.0001);
   const maxScaleByScreen = getMaxScaleForScreen(currentScale);
-  const maxScaleByGizmo = getMaxScaleForGizmo();
-  const maxAllowedScale = Math.max(
-    MIN_MODEL_SCALE,
-    Math.min(MAX_MODEL_SCALE, maxScaleByScreen, maxScaleByGizmo),
-  );
+  const maxAllowedScale = Math.max(MIN_MODEL_SCALE, Math.min(MAX_MODEL_SCALE, maxScaleByScreen));
 
   return THREE.MathUtils.clamp(desiredScale, MIN_MODEL_SCALE, maxAllowedScale);
 }
@@ -1879,34 +1879,6 @@ function getMaxScaleForScreen(currentScale) {
   const maxScaleX = currentScale * (MODEL_SCREEN_FIT / projected.width);
   const maxScaleY = currentScale * (MODEL_SCREEN_FIT / projected.height);
   return Math.min(maxScaleX, maxScaleY);
-}
-
-function getMaxScaleForGizmo() {
-  debugBounds.setFromObject(modelRoot);
-  debugBounds.getSize(debugSize);
-
-  const currentScale = Math.max(modelRoot.scale.x, 0.0001);
-  const unscaledMaxHalf = Math.max(debugSize.x, debugSize.y, debugSize.z) / (2 * currentScale);
-  const viewAtPivot = getViewportSizeAtPosition(worldPivot);
-  const maxGizmoRadius = Math.min(viewAtPivot.x, viewAtPivot.y) * GIZMO_SCREEN_FIT;
-
-  let low = MIN_MODEL_SCALE;
-  let high = MAX_MODEL_SCALE;
-
-  for (let index = 0; index < 18; index += 1) {
-    const mid = (low + high) * 0.5;
-    const maxHalf = unscaledMaxHalf * mid;
-    const padding = Math.max(maxHalf * gizmoConfig.offsetMultiplier, 0.18);
-    const whiteRadius = maxHalf + padding * 1.62;
-
-    if (whiteRadius <= maxGizmoRadius) {
-      low = mid;
-    } else {
-      high = mid;
-    }
-  }
-
-  return low;
 }
 
 function getProjectedBoundsForBox(box) {
