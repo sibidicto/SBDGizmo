@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 
 const canvas = document.querySelector(".webgl");
+const backgroundFrameNode = document.querySelector(".background-frame");
+const backgroundImageNode = document.querySelector(".background-frame__image");
 const statusNode = document.querySelector(".status-toast");
 const debugNode = document.querySelector(".debug");
 const resetButton = document.querySelector(".js-reset-view");
@@ -11,8 +14,10 @@ const layoutV1Button = document.querySelector(".js-layout-v1");
 const layoutV2Button = document.querySelector(".js-layout-v2");
 const toggleDebugButton = document.querySelector(".js-toggle-debug");
 const loadModelButton = document.querySelector(".js-load-model");
+const loadBackgroundButton = document.querySelector(".js-load-background");
 const tutorialButton = document.querySelector(".js-show-tutorial");
 const modelFileInput = document.querySelector(".js-model-file");
+const backgroundFileInput = document.querySelector(".js-background-file");
 const tutorialNode = document.querySelector(".tutorial");
 const tutorialTrailNode = document.querySelector(".tutorial__trail");
 const tutorialEffectsNode = document.querySelector(".tutorial__effects");
@@ -64,7 +69,7 @@ scene.add(camera);
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
-  alpha: false,
+  alpha: true,
 });
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -74,6 +79,10 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 renderer.autoClear = false;
+renderer.setClearColor(0x000000, 0);
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
@@ -137,7 +146,21 @@ shadowCatcher.receiveShadow = true;
 shadowCatcher.renderOrder = 1;
 scene.add(shadowCatcher);
 
+const DEFAULT_LIGHT_STATE = {
+  hemisphereSky: new THREE.Color(0xd8d1c8),
+  hemisphereGround: new THREE.Color(0x18130f),
+  hemisphereIntensity: 1.7,
+  key: new THREE.Color(0xfff2e8),
+  keyIntensity: 2.3,
+  fill: new THREE.Color(0x8fa4ff),
+  fillIntensity: 0.55,
+  rim: new THREE.Color(0xffdfc7),
+  rimIntensity: 0.4,
+};
+
 const loader = new GLTFLoader();
+const textureLoader = new THREE.TextureLoader();
+const rgbeLoader = new RGBELoader();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const pointerStart = new THREE.Vector2();
@@ -183,6 +206,11 @@ const state = {
   hasLoadedModel: false,
   currentModelLabel: "model.glb",
   objectUrl: null,
+  backgroundObjectUrl: null,
+  backgroundLabel: "default",
+  backgroundLoaded: false,
+  backgroundTexture: null,
+  environmentTexture: null,
   loaderStatus: "init",
   lastError: "",
   meshCount: 0,
@@ -216,6 +244,10 @@ loadModelButton.addEventListener("click", () => {
   modelFileInput.click();
 });
 
+loadBackgroundButton.addEventListener("click", () => {
+  backgroundFileInput.click();
+});
+
 tutorialButton.addEventListener("click", () => {
   if (state.tutorialRunning) {
     stopTutorial();
@@ -238,6 +270,21 @@ modelFileInput.addEventListener("change", () => {
   state.objectUrl = URL.createObjectURL(file);
   loadModelFromSource(state.objectUrl, file.name);
   modelFileInput.value = "";
+});
+
+backgroundFileInput.addEventListener("change", () => {
+  const file = backgroundFileInput.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  if (state.backgroundObjectUrl) {
+    URL.revokeObjectURL(state.backgroundObjectUrl);
+  }
+
+  state.backgroundObjectUrl = URL.createObjectURL(file);
+  loadBackgroundFromSource(state.backgroundObjectUrl, file.name);
+  backgroundFileInput.value = "";
 });
 
 bindConstructorUI();
@@ -1051,6 +1098,66 @@ function loadModelFromSource(source, label) {
   );
 }
 
+function loadBackgroundFromSource(source, label) {
+  const isHDR = /\.hdr$/i.test(label);
+  setStatus(`Loading background ${label}...`, true);
+
+  clearCurrentBackground();
+
+  const onLoad = (texture) => {
+    if (!texture) {
+      setStatus(`Failed to load background ${label}.`, true);
+      return;
+    }
+
+    if (!isHDR) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+    }
+
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+
+    const environmentTexture = pmremGenerator.fromEquirectangular(texture).texture;
+    scene.background = null;
+    scene.environment = environmentTexture;
+
+    state.backgroundTexture = texture;
+    state.environmentTexture = environmentTexture;
+    state.backgroundLoaded = true;
+    state.backgroundLabel = label;
+
+    if (backgroundFrameNode && backgroundImageNode) {
+      if (isHDR) {
+        backgroundImageNode.removeAttribute("src");
+        backgroundFrameNode.classList.add("is-hidden");
+      } else {
+        backgroundImageNode.src = source;
+        backgroundFrameNode.classList.remove("is-hidden");
+      }
+    }
+
+    applyEnvironmentLighting(true);
+    refreshModelEnvironment();
+    setStatus(
+      isHDR
+        ? `HDR ${label} loaded. Lighting uses it; visible background stays flat/off.`
+        : `Background ${label} loaded as 2D image. Lighting uses the same file invisibly.`,
+    );
+  };
+
+  const onError = (error) => {
+    console.error(error);
+    state.lastError = error?.message ?? String(error);
+    setStatus(`Failed to load background ${label}. Use equirectangular image or .hdr.`, true);
+  };
+
+  if (isHDR) {
+    rgbeLoader.load(source, onLoad, undefined, onError);
+    return;
+  }
+
+  textureLoader.load(source, onLoad, undefined, onError);
+}
+
 function clearCurrentModel() {
   scene.attach(modelRoot);
   modelRoot.position.set(0, 0, 0);
@@ -1062,6 +1169,34 @@ function clearCurrentModel() {
   }
 
   state.model = null;
+}
+
+function clearCurrentBackground() {
+  if (state.backgroundTexture) {
+    state.backgroundTexture.dispose();
+    state.backgroundTexture = null;
+  }
+
+  if (state.environmentTexture) {
+    state.environmentTexture.dispose();
+    state.environmentTexture = null;
+  }
+
+  scene.background = new THREE.Color(0x151515);
+  scene.environment = null;
+  state.backgroundLoaded = false;
+  state.backgroundLabel = "default";
+
+  if (backgroundImageNode) {
+    backgroundImageNode.removeAttribute("src");
+  }
+
+  if (backgroundFrameNode) {
+    backgroundFrameNode.classList.add("is-hidden");
+  }
+
+  applyEnvironmentLighting(false);
+  refreshModelEnvironment();
 }
 
 function initializeLoadedModel(model) {
@@ -1087,7 +1222,7 @@ function initializeLoadedModel(model) {
       }
 
       if ("envMapIntensity" in material) {
-        material.envMapIntensity = 0.85;
+        material.envMapIntensity = state.backgroundLoaded ? 2.8 : 0.85;
       }
     }
   });
@@ -1145,6 +1280,118 @@ function initializeLoadedModel(model) {
   state.loaderStatus = "loaded";
   state.hasLoadedModel = true;
   setStatus(`${state.currentModelLabel} loaded.`);
+}
+
+function refreshModelEnvironment() {
+  if (!state.model) {
+    return;
+  }
+
+  state.model.traverse((child) => {
+    if (!child.isMesh) {
+      return;
+    }
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) {
+      if (!material) {
+        continue;
+      }
+
+      if ("envMapIntensity" in material) {
+        material.envMapIntensity = state.backgroundLoaded ? 2.8 : 0.85;
+      }
+
+      material.needsUpdate = true;
+    }
+  });
+}
+
+function applyEnvironmentLighting(useEnvironment) {
+  if (!useEnvironment) {
+    hemisphereLight.color.copy(DEFAULT_LIGHT_STATE.hemisphereSky);
+    hemisphereLight.groundColor.copy(DEFAULT_LIGHT_STATE.hemisphereGround);
+    hemisphereLight.intensity = DEFAULT_LIGHT_STATE.hemisphereIntensity;
+    keyLight.color.copy(DEFAULT_LIGHT_STATE.key);
+    keyLight.intensity = DEFAULT_LIGHT_STATE.keyIntensity;
+    fillLight.color.copy(DEFAULT_LIGHT_STATE.fill);
+    fillLight.intensity = DEFAULT_LIGHT_STATE.fillIntensity;
+    rimLight.color.copy(DEFAULT_LIGHT_STATE.rim);
+    rimLight.intensity = DEFAULT_LIGHT_STATE.rimIntensity;
+    return;
+  }
+
+  const sampled = sampleBackgroundLightColors(state.backgroundTexture);
+  if (!sampled) {
+    hemisphereLight.color.set(0xffffff);
+    hemisphereLight.groundColor.set(0x4a4036);
+    hemisphereLight.intensity = 0.32;
+    keyLight.color.set(0xfff4ea);
+    keyLight.intensity = 1.55;
+    fillLight.color.set(0xb8c8ff);
+    fillLight.intensity = 0.22;
+    rimLight.color.set(0xffe0c3);
+    rimLight.intensity = 0.12;
+    return;
+  }
+
+  hemisphereLight.color.copy(sampled.sky);
+  hemisphereLight.groundColor.copy(sampled.ground);
+  hemisphereLight.intensity = 0.58;
+  keyLight.color.copy(sampled.key);
+  keyLight.intensity = 1.85;
+  fillLight.color.copy(sampled.fill);
+  fillLight.intensity = 0.52;
+  rimLight.color.copy(sampled.rim);
+  rimLight.intensity = 0.26;
+}
+
+function sampleBackgroundLightColors(texture) {
+  const image = texture?.image;
+  if (!image || !image.width || !image.height) {
+    return null;
+  }
+
+  const canvas2d = document.createElement("canvas");
+  const width = 32;
+  const height = 16;
+  canvas2d.width = width;
+  canvas2d.height = height;
+  const context = canvas2d.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    return null;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  return {
+    sky: sampleAverageColor(context, 0, 0, width, Math.floor(height * 0.38)).multiplyScalar(1.08),
+    ground: sampleAverageColor(context, 0, Math.floor(height * 0.62), width, Math.ceil(height * 0.38)).multiplyScalar(0.52),
+    key: sampleAverageColor(context, Math.floor(width * 0.56), 0, Math.ceil(width * 0.32), Math.floor(height * 0.48)).multiplyScalar(1.15),
+    fill: sampleAverageColor(context, 0, Math.floor(height * 0.14), Math.ceil(width * 0.34), Math.floor(height * 0.56)).multiplyScalar(1.05),
+    rim: sampleAverageColor(context, Math.floor(width * 0.7), Math.floor(height * 0.2), Math.ceil(width * 0.24), Math.floor(height * 0.46)).multiplyScalar(0.94),
+  };
+}
+
+function sampleAverageColor(context, x, y, width, height) {
+  const imageData = context.getImageData(x, y, width, height).data;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let count = 0;
+
+  for (let index = 0; index < imageData.length; index += 4) {
+    r += imageData[index];
+    g += imageData[index + 1];
+    b += imageData[index + 2];
+    count += 1;
+  }
+
+  if (!count) {
+    return new THREE.Color(0xffffff);
+  }
+
+  return new THREE.Color(r / (255 * count), g / (255 * count), b / (255 * count));
 }
 
 function intersectGizmoControls(event) {
@@ -1963,6 +2210,7 @@ function updateDebug() {
   lines.push(`loader: ${state.loaderStatus}`);
   lines.push(`error: ${state.lastError || "-"}`);
   lines.push(`model loaded: ${Boolean(state.model)}`);
+  lines.push(`background: ${state.backgroundLoaded ? `${state.backgroundLabel} (2D + env)` : "default"}`);
   lines.push(`mesh count: ${state.meshCount}`);
   lines.push(`dragging: ${state.draggingControl?.controlKey ?? "-"}`);
   lines.push(`hover: ${state.hoveredControl ?? "-"}`);

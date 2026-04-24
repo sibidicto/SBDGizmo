@@ -15,6 +15,9 @@
     </script>
   </head>
   <body>
+    <div class="background-frame is-hidden">
+      <img class="background-frame__image" alt="" />
+    </div>
     <canvas class="webgl"></canvas>
 
     <div class="toolbar">
@@ -24,8 +27,10 @@
       <button class="toolbar__button js-toggle-gizmo" type="button">Hide Gizmo</button>
       <button class="toolbar__button js-reset-view" type="button">Reset View</button>
       <button class="toolbar__button js-load-model" type="button">Load Model</button>
+      <button class="toolbar__button js-load-background" type="button">Load Background</button>
       <button class="toolbar__button js-show-tutorial" type="button">Show Tutorial</button>
       <input class="js-model-file" type="file" accept=".glb,model/gltf-binary" hidden />
+      <input class="js-background-file" type="file" accept=".hdr,image/*" hidden />
     </div>
 
     <div class="status-toast" aria-live="polite"></div>
